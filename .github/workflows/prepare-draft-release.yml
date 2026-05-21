@@ -1,0 +1,106 @@
+name: Prepare Draft Release
+
+"on":
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version in x.y.z format
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  prepare-release:
+    name: Prepare release from main
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ inputs.version }}
+    steps:
+      - name: Ensure workflow runs from main
+        run: |
+          if [[ "${GITHUB_REF_NAME}" != "main" ]]; then
+            echo "This workflow must be started from the main branch."
+            exit 1
+          fi
+
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Validate version format
+        run: |
+          if [[ ! "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Version must match x.y.z"
+            exit 1
+          fi
+
+      - name: Ensure tag and release do not already exist
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          if git ls-remote --exit-code --tags origin "refs/tags/${VERSION}" >/dev/null 2>&1; then
+            echo "Tag ${VERSION} already exists."
+            exit 1
+          fi
+
+          if gh release view "${VERSION}" >/dev/null 2>&1; then
+            echo "Release ${VERSION} already exists."
+            exit 1
+          fi
+
+      - name: Update manifest version
+        run: |
+          node -e "const fs=require('fs'); const path='manifest.json'; const manifest=JSON.parse(fs.readFileSync(path, 'utf8')); manifest.version=process.env.VERSION; fs.writeFileSync(path, JSON.stringify(manifest, null, 2) + '\n');"
+
+      - name: Commit manifest version to main
+        id: commit_manifest
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet -- manifest.json; then
+            echo "No manifest changes to commit."
+          else
+            git add manifest.json
+            git commit -m "chore: prepare release ${VERSION}"
+            git push origin HEAD:main
+          fi
+
+          echo "head_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Scan Repository
+        uses: hugoalh/scan-virus-ghaction@v0.20.1
+        with:
+          found_summary: true
+          statistics_summary: true
+
+      - name: Generate artifact provenance attestation
+        uses: actions/attest@v4
+        with:
+          subject-path: |
+            main.js
+            manifest.json
+            styles.css
+
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${VERSION}" \
+            main.js \
+            styles.css \
+            manifest.json \
+            --target "main" \
+            --title "Embedded Omnisearch ${VERSION}" \
+            --draft \
+            --notes ""

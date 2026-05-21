@@ -1,0 +1,18 @@
+{
+  "name": "trans-vault",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Obsidian desktop plugin for copying and moving notes, files, and folders across local vaults.",
+  "scripts": {
+    "build": "node esbuild.config.mjs build",
+    "build:release": "node esbuild.config.mjs release",
+    "dev": "node esbuild.config.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.30",
+    "esbuild": "^0.25.5",
+    "obsidian": "latest",
+    "typescript": "^5.8.3"
+  }
+}

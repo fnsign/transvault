@@ -1,0 +1,20 @@
+name: Security Scan
+
+"on":
+  workflow_dispatch:
+
+jobs:
+  job_id:
+    name: "Scan Virus"
+    runs-on: "ubuntu-latest"
+    steps:
+      - name: "Checkout Repository"
+        uses: "actions/checkout@v6"
+        with:
+          fetch-depth: 0
+      - name: "Scan Repository"
+        uses: "hugoalh/scan-virus-ghaction@v0.20.1"
+        with:
+          found_summary: true
+          statistics_summary: true
+        
