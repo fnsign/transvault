@@ -1,4 +1,4 @@
-.trans-vault-target-card {
+.transvault-target-card {
   border: 1px solid var(--background-modifier-border);
   border-radius: 12px;
   padding: 12px;
@@ -7,26 +7,26 @@
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.06);
 }
 
-.trans-vault-target-card .setting-item {
+.transvault-target-card .setting-item {
   border-top: none;
   padding-top: 0;
   padding-bottom: 10px;
 }
 
-.trans-vault-target-card .setting-item:last-child {
+.transvault-target-card .setting-item:last-child {
   padding-bottom: 0;
 }
 
-.trans-vault-target-actions {
+.transvault-target-actions {
   display: flex;
   justify-content: flex-end;
 }
 
-.trans-vault-section-block {
+.transvault-section-block {
   margin: 16px 0 12px;
 }
 
-.trans-vault-section-heading {
+.transvault-section-heading {
   margin: 0 0 8px;
   padding: 0;
   font-size: var(--font-ui-medium);
@@ -34,7 +34,7 @@
   line-height: var(--line-height-tight);
 }
 
-.trans-vault-section-note {
+.transvault-section-note {
   display: block;
   margin: 0;
   padding: 0;
@@ -43,7 +43,7 @@
   color: var(--text-muted);
 }
 
-.trans-vault-target-validation {
+.transvault-target-validation {
   display: grid;
   gap: 4px;
   margin: 0 0 10px;
@@ -52,32 +52,32 @@
   background: var(--background-primary-alt);
 }
 
-.trans-vault-target-validation small {
+.transvault-target-validation small {
   color: var(--text-warning);
   line-height: 1.4;
 }
 
-.trans-vault-suggest-title {
+.transvault-suggest-title {
   font-weight: var(--font-semibold);
 }
 
-.trans-vault-suggest-detail {
+.transvault-suggest-detail {
   margin-top: 4px;
   color: var(--text-muted);
   font-size: var(--font-ui-smaller);
   word-break: break-word;
 }
 
-.trans-vault-review-modal .modal {
+.transvault-review-modal .modal {
   width: min(960px, 94vw);
 }
 
-.trans-vault-review-modal .modal-content {
+.transvault-review-modal .modal-content {
   display: grid;
   gap: 12px;
 }
 
-.trans-vault-review-conflict-notice {
+.transvault-review-conflict-notice {
   display: grid;
   gap: 8px;
   padding: 12px 14px;
@@ -86,7 +86,7 @@
   background: color-mix(in srgb, var(--interactive-accent) 10%, var(--background-secondary));
 }
 
-.trans-vault-review-conflict-badge {
+.transvault-review-conflict-badge {
   display: inline-flex;
   align-items: center;
   width: fit-content;
@@ -98,13 +98,13 @@
   font-weight: var(--font-semibold);
 }
 
-.trans-vault-review-conflict-text {
+.transvault-review-conflict-text {
   margin: 0;
   color: var(--text-normal);
   line-height: 1.4;
 }
 
-.trans-vault-review-tree {
+.transvault-review-tree {
   display: grid;
   gap: 8px;
   max-height: 60vh;
@@ -114,12 +114,12 @@
   border-bottom: 1px solid var(--background-modifier-border);
 }
 
-.trans-vault-review-node {
-  padding-left: calc(var(--trans-vault-depth) * 18px);
+.transvault-review-node {
+  padding-left: calc(var(--transvault-depth) * 18px);
   min-width: 0;
 }
 
-.trans-vault-review-row {
+.transvault-review-row {
   display: flex;
   align-items: flex-start;
   gap: 8px;
@@ -131,32 +131,32 @@
   min-width: 0;
 }
 
-.trans-vault-review-row:hover {
+.transvault-review-row:hover {
   background: var(--background-modifier-hover);
 }
 
-.trans-vault-review-row-group {
+.transvault-review-row-group {
   background: color-mix(in srgb, var(--background-secondary) 72%, var(--background-primary));
 }
 
-.trans-vault-review-row-note {
+.transvault-review-row-note {
   background: transparent;
 }
 
-.trans-vault-review-row-attachment {
+.transvault-review-row-attachment {
   background: color-mix(in srgb, var(--background-primary) 85%, var(--background-modifier-hover));
 }
 
-.trans-vault-review-row:focus-within {
+.transvault-review-row:focus-within {
   background: var(--background-modifier-hover);
   box-shadow: inset 0 0 0 1px var(--interactive-accent);
 }
 
-.trans-vault-review-row input[type="checkbox"] {
+.transvault-review-row input[type="checkbox"] {
   margin: 0;
 }
 
-.trans-vault-checkbox-shell {
+.transvault-checkbox-shell {
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -166,12 +166,12 @@
   height: 18px;
 }
 
-.trans-vault-checkbox-shell input[type="checkbox"] {
+.transvault-checkbox-shell input[type="checkbox"] {
   width: 18px;
   height: 18px;
 }
 
-.trans-vault-check-indicator {
+.transvault-check-indicator {
   position: absolute;
   inset: 0;
   display: none;
@@ -182,11 +182,11 @@
   pointer-events: none;
 }
 
-.trans-vault-check-indicator.is-visible {
+.transvault-check-indicator.is-visible {
   display: inline-flex;
 }
 
-.trans-vault-review-icon {
+.transvault-review-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -196,15 +196,15 @@
   color: var(--text-muted);
 }
 
-.trans-vault-review-row-group .trans-vault-review-icon {
+.transvault-review-row-group .transvault-review-icon {
   color: var(--interactive-accent);
 }
 
-.trans-vault-review-row-attachment .trans-vault-review-icon {
+.transvault-review-row-attachment .transvault-review-icon {
   color: var(--text-faint);
 }
 
-.trans-vault-review-label {
+.transvault-review-label {
   display: block;
   flex: 1 1 auto;
   font-weight: var(--font-medium);
@@ -215,59 +215,59 @@
   overflow-wrap: break-word;
 }
 
-.trans-vault-review-label-group {
+.transvault-review-label-group {
   font-size: var(--font-ui-smaller);
   font-weight: var(--font-semibold);
   letter-spacing: 0.01em;
   text-transform: uppercase;
 }
 
-.trans-vault-review-label-note {
+.transvault-review-label-note {
   font-size: var(--font-ui-medium);
 }
 
-.trans-vault-review-label-attachment {
+.transvault-review-label-attachment {
   font-size: var(--font-ui-smaller);
   color: var(--text-muted);
 }
 
-.trans-vault-review-children {
+.transvault-review-children {
   display: grid;
   gap: 6px;
   min-width: 0;
 }
 
-.trans-vault-notice-clickable {
+.transvault-notice-clickable {
   cursor: pointer;
 }
 
-.trans-vault-skip-notice {
+.transvault-skip-notice {
   display: grid;
   gap: 8px;
 }
 
-.trans-vault-skip-notice-title,
-.trans-vault-skip-notice-more,
-.trans-vault-skip-notice-dismiss {
+.transvault-skip-notice-title,
+.transvault-skip-notice-more,
+.transvault-skip-notice-dismiss {
   color: var(--text-error);
 }
 
-.trans-vault-skip-notice-list {
+.transvault-skip-notice-list {
   margin: 0;
   padding-left: 18px;
   color: var(--text-error);
 }
 
-.trans-vault-skip-notice-list li {
+.transvault-skip-notice-list li {
   margin: 0;
 }
 
-.trans-vault-skip-notice-dismiss {
+.transvault-skip-notice-dismiss {
   font-weight: var(--font-semibold);
 }
 
 @media (max-width: 720px) {
-  .trans-vault-review-row {
+  .transvault-review-row {
     align-items: flex-start;
   }
 }

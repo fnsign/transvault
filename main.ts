@@ -332,6 +332,16 @@ function isMarkdownFile(file: TFile): boolean {
   return file.extension.toLowerCase() === "md";
 }
 
+function hasSelectedAncestor(filePath: string, selectedPaths: Set<string>): boolean {
+  const parts = normalizePath(filePath).split("/");
+  for (let index = 1; index < parts.length; index += 1) {
+    if (selectedPaths.has(parts.slice(0, index).join("/"))) {
+      return true;
+    }
+  }
+  return false;
+}
+
 class DestinationResolver {
   async resolve(target: DestinationConfig): Promise<ResolvedDestinationConfig> {
     const vaultPath = ensureAbsolutePath(target.vaultPath, "Destination vault path");
@@ -522,18 +532,10 @@ class TransferPlanner {
   normalizeSelection(selection: TAbstractFile[]): TAbstractFile[] {
     const unique = new Map<string, TAbstractFile>();
     for (const entry of selection) {
-      unique.set(entry.path, entry);
+      unique.set(normalizePath(entry.path), entry);
     }
-    return [...unique.values()]
-      .sort((left, right) => left.path.length - right.path.length)
-      .filter((entry, index, items) => {
-        return !items.some((candidate, candidateIndex) => {
-          if (candidateIndex >= index) {
-            return false;
-          }
-          return entry.path.startsWith(`${candidate.path}/`);
-        });
-      });
+    const selectedPaths = new Set(unique.keys());
+    return [...unique.values()].filter((entry) => !hasSelectedAncestor(entry.path, selectedPaths));
   }
 
   private getSourceVaultRoot(): string {
@@ -670,11 +672,6 @@ class TransferExecutor {
   constructor(private readonly plugin: TransVaultPlugin) {}
 
   async execute(plan: PreparedTransferPlan, mode: TransferMode, confirmedSelectionPaths?: string[]): Promise<TransferSummary> {
-    const explicitFileMap = new Map<string, ExplicitFileSelection>();
-    for (const entry of plan.explicitFiles) {
-      explicitFileMap.set(entry.file.path, entry);
-    }
-
     const selectedReviewPaths = confirmedSelectionPaths
       ? new Set<string>(confirmedSelectionPaths)
       : undefined;
@@ -765,7 +762,7 @@ class TransferExecutor {
         if (entry.shouldRewriteLinks) {
           let content = await this.plugin.app.vault.cachedRead(entry.sourceFile);
           content = this.rewriteMarkdownLinks(content, entry.sourceVaultRelativePath, entry.destinationVaultRelativePath, destinationMap);
-          const tagResult = this.applyDestinationTags(content, mode, entry.sourceVaultRelativePath, summary);
+          const tagResult = this.applyDestinationTags(content, mode, entry.sourceVaultRelativePath);
           content = tagResult.content;
           if (tagResult.warning) {
             summary.warnings.push(tagResult.warning);
@@ -966,15 +963,14 @@ class TransferExecutor {
     return encodeURI(linkPath);
   }
 
-  private applyDestinationTags(content: string, mode: TransferMode, sourcePath: string, summary: TransferSummary): FrontmatterTagResult {
+  private applyDestinationTags(content: string, mode: TransferMode, sourcePath: string): FrontmatterTagResult {
     const tags = this.getTagsForMode(mode);
     if (tags.length === 0) {
       return { content };
     }
     const result = this.addTagsToMarkdownContent(content, tags);
     if (result.warning) {
-      summary.warnings.push(`Skipped tagging ${sourcePath}: ${result.warning}`);
-      return { content };
+      return { content, warning: `Skipped tagging ${sourcePath}: ${result.warning}` };
     }
     return result;
   }
@@ -1159,10 +1155,10 @@ class TargetVaultSuggestModal extends FuzzySuggestModal<DestinationConfig> {
 
   renderSuggestion(match: FuzzyMatch<DestinationConfig>, el: HTMLElement): void {
     const target = match.item;
-    el.createDiv({ cls: "trans-vault-suggest-title", text: getDestinationDisplayName(target) });
+    el.createDiv({ cls: "transvault-suggest-title", text: getDestinationDisplayName(target) });
     const detail = [target.vaultPath.trim(), target.destinationPath.trim()].filter((entry) => entry.length > 0).join(" -> ");
     if (detail.length > 0) {
-      el.createDiv({ cls: "trans-vault-suggest-detail", text: detail });
+      el.createDiv({ cls: "transvault-suggest-detail", text: detail });
     }
   }
 
@@ -1195,22 +1191,22 @@ class ReviewSelectionModal extends Modal {
   }
 
   onOpen(): void {
-    this.modalEl.addClass("trans-vault-review-modal");
+    this.modalEl.addClass("transvault-review-modal");
     this.titleEl.setText("Review linked notes");
     this.contentEl.empty();
-    const conflictNotice = this.contentEl.createDiv({ cls: "trans-vault-review-conflict-notice" });
+    const conflictNotice = this.contentEl.createDiv({ cls: "transvault-review-conflict-notice" });
     conflictNotice.createSpan({
-      cls: "trans-vault-review-conflict-badge",
+      cls: "transvault-review-conflict-badge",
       text: `Conflict handling: ${getConflictStrategyLabel(this.conflictStrategy)}`,
     });
     conflictNotice.createEl("p", {
-      cls: "trans-vault-review-conflict-text",
+      cls: "transvault-review-conflict-text",
       text: getConflictStrategyDescription(this.conflictStrategy),
     });
     this.contentEl.createEl("p", {
       text: "Review direct links and backlinks for the selected Markdown notes. The transfer includes every note instance that remains selected.",
     });
-    const tree = this.contentEl.createDiv({ cls: "trans-vault-review-tree" });
+    const tree = this.contentEl.createDiv({ cls: "transvault-review-tree" });
     for (const root of this.roots) {
       this.renderNode(tree, root, 0);
     }
@@ -1252,19 +1248,19 @@ class ReviewSelectionModal extends Modal {
   }
 
   private renderNode(containerEl: HTMLElement, node: ReviewNode, depth: number): void {
-    const item = containerEl.createDiv({ cls: "trans-vault-review-node" });
-    item.style.setProperty("--trans-vault-depth", String(depth));
-    const row = item.createDiv({ cls: "trans-vault-review-row" });
-    row.addClass(`trans-vault-review-row-${node.type}`);
-    const checkboxShell = row.createSpan({ cls: "trans-vault-checkbox-shell" });
+    const item = containerEl.createDiv({ cls: "transvault-review-node" });
+    item.style.setProperty("--transvault-depth", String(depth));
+    const row = item.createDiv({ cls: "transvault-review-row" });
+    row.addClass(`transvault-review-row-${node.type}`);
+    const checkboxShell = row.createSpan({ cls: "transvault-checkbox-shell" });
     const checkbox = checkboxShell.createEl("input", { type: "checkbox" });
     this.nodeElements.set(node.id, checkbox);
     checkbox.addEventListener("change", () => {
       this.toggleNode(node, checkbox.checked);
       this.refreshTree();
     });
-    const indicator = checkboxShell.createSpan({ cls: "trans-vault-check-indicator" });
-    const iconEl = row.createSpan({ cls: "trans-vault-review-icon" });
+    const indicator = checkboxShell.createSpan({ cls: "transvault-check-indicator" });
+    const iconEl = row.createSpan({ cls: "transvault-review-icon" });
     if (node.type === "group") {
       if (node.direction) {
         setIcon(iconEl, node.direction === "to" ? "links-going-out" : "links-coming-in");
@@ -1276,10 +1272,10 @@ class ReviewSelectionModal extends Modal {
     } else {
       setIcon(iconEl, node.children.length > 0 ? "file-text" : "file");
     }
-    const label = row.createSpan({ cls: "trans-vault-review-label", text: node.label });
-    label.addClass(`trans-vault-review-label-${node.type}`);
+    const label = row.createSpan({ cls: "transvault-review-label", text: node.label });
+    label.addClass(`transvault-review-label-${node.type}`);
 
-    const childrenContainer = item.createDiv({ cls: "trans-vault-review-children" });
+    const childrenContainer = item.createDiv({ cls: "transvault-review-children" });
     for (const child of node.children) {
       this.renderNode(childrenContainer, child, depth + 1);
     }
@@ -1295,7 +1291,7 @@ class ReviewSelectionModal extends Modal {
   private refreshNode(node: ReviewNode): void {
     const checkbox = this.nodeElements.get(node.id);
     if (checkbox) {
-      const indicator = checkbox.parentElement?.querySelector<HTMLElement>(".trans-vault-check-indicator") ?? null;
+      const indicator = checkbox.parentElement?.querySelector<HTMLElement>(".transvault-check-indicator") ?? null;
       if (indicator) {
         this.updateCheckbox(node, checkbox, indicator);
       }
@@ -1471,8 +1467,8 @@ class TransVaultSettingTab extends PluginSettingTab {
   }
 
   private renderDestinationCard(containerEl: HTMLElement, target: DestinationConfig): void {
-    const card = containerEl.createDiv({ cls: "trans-vault-target-card" });
-    const validationHost = card.createDiv({ cls: "trans-vault-target-validation" });
+    const card = containerEl.createDiv({ cls: "transvault-target-card" });
+    const validationHost = card.createDiv({ cls: "transvault-target-validation" });
 
     this.addTextSetting(card, {
       name: "Destination name",
@@ -1887,14 +1883,14 @@ export default class TransVaultPlugin extends Plugin {
     if (summary.skippedConflictCount > 0) {
       const fragment = document.createDocumentFragment();
       const container = document.createElement("div");
-      container.className = "trans-vault-skip-notice";
+      container.className = "transvault-skip-notice";
       const title = document.createElement("div");
-      title.className = "trans-vault-skip-notice-title";
+      title.className = "transvault-skip-notice-title";
       title.textContent = `${action} with warnings: ${parts.join(", ")}.`;
       container.appendChild(title);
       const shownEntries = summary.skippedEntries.slice(0, 10);
       const list = document.createElement("ul");
-      list.className = "trans-vault-skip-notice-list";
+      list.className = "transvault-skip-notice-list";
       for (const skipped of shownEntries) {
         const row = document.createElement("li");
         row.textContent = skipped;
@@ -1903,17 +1899,17 @@ export default class TransVaultPlugin extends Plugin {
       container.appendChild(list);
       if (summary.skippedEntries.length > shownEntries.length) {
         const more = document.createElement("div");
-        more.className = "trans-vault-skip-notice-more";
+        more.className = "transvault-skip-notice-more";
         more.textContent = `... and ${formatCount(summary.skippedEntries.length - shownEntries.length, "more skipped item", "more skipped items")}.`;
         container.appendChild(more);
       }
       const dismissHint = document.createElement("div");
-      dismissHint.className = "trans-vault-skip-notice-dismiss";
+      dismissHint.className = "transvault-skip-notice-dismiss";
       dismissHint.textContent = "Click to dismiss";
       container.appendChild(dismissHint);
       fragment.appendChild(container);
       const notice = new Notice(fragment, 0) as Notice & { noticeEl?: HTMLElement; hide?: () => void };
-      notice.noticeEl?.addClass("trans-vault-notice-clickable");
+      notice.noticeEl?.addClass("transvault-notice-clickable");
       notice.noticeEl?.addEventListener("click", () => {
         notice.hide?.();
       });

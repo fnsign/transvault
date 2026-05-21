@@ -1,6 +1,6 @@
 {
-  "name": "trans-vault",
-  "version": "0.1.0",
+  "name": "transvault",
+  "version": "1.0.1",
   "private": true,
   "description": "Obsidian desktop plugin for copying and moving notes, files, and folders across local vaults.",
   "scripts": {
