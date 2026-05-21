@@ -134,3 +134,7 @@ Tag rules:
 - The review dialog only displays direct markdown relationships for explicitly selected markdown files.
 - Link rewriting only applies to markdown files and only when the referenced destination file is also transferred.
 - There is no telemetry and no network access.
+
+## License
+
+MIT
