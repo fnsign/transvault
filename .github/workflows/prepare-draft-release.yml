@@ -101,6 +101,6 @@ jobs:
             styles.css \
             manifest.json \
             --target "main" \
-            --title "Embedded Omnisearch ${VERSION}" \
+            --title "Trans Vault ${VERSION}" \
             --draft \
             --notes ""
