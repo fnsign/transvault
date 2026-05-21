@@ -1,3 +1,8 @@
+[![GitHub Release](https://img.shields.io/github/v/release/fnsign/transvault)](https://community.obsidian.md/plugins/transvault)
+[![GitHub License](https://img.shields.io/github/license/fnsign/transvault?color=%23e4d312)](https://github.com/fnsign/transvault/blob/main/LICENSE)
+ [![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/fnsign/transvault/total?label=plugin%20downloads)](https://community.obsidian.md/plugins/transvault)
+
+
 # Trans Vault
 
 Trans Vault is an Obsidian desktop plugin for copying and moving files, multiple files, and folders from the active vault into other local Obsidian vaults.
