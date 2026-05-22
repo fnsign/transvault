@@ -3,6 +3,9 @@ name: Security Scan
 "on":
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   job_id:
     name: "Scan Virus"
