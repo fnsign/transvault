@@ -27,6 +27,9 @@ Use two local desktop vaults:
 
 ## Validation Checklist
 
+0. Add a new destination configuration.
+Expected: `Use default attachment location` starts disabled and the manual attachment path field is visible.
+
 1. Copy a single active markdown file from the command palette.
 Expected: the destination file is written into the destination path and the source file remains in place.
 
@@ -83,3 +86,6 @@ Expected: source files are deleted only after successful destination writes, and
 
 19. Test destination default attachment detection.
 Expected: when the destination vault has a readable `attachmentFolderPath`, linked non-markdown files are placed there; when it is missing or unreadable, the destination vault root is used.
+
+20. Test legacy destination settings without `useDefaultAttachmentLocation`.
+Expected: existing manual attachment paths remain manual, and old destinations without an attachment path continue to use destination default attachment detection.

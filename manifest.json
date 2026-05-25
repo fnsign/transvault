@@ -1,7 +1,7 @@
 {
   "id": "transvault",
   "name": "Trans Vault",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "minAppVersion": "1.5.12",
   "description": "Copy or move notes, folders, attachments, and reviewed direct note dependencies between local desktop vaults.",
   "author": "fnsign",

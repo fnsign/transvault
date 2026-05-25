@@ -11,5 +11,5 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["main.ts"]
+  "include": ["main.ts", "release-notes.d.ts"]
 }

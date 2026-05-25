@@ -8,6 +8,7 @@ import {
   FuzzySuggestModal,
   Menu,
   MenuItem,
+  MarkdownRenderer,
   Modal,
   Notice,
   Platform,
@@ -23,6 +24,7 @@ import {
   setIcon,
   stringifyYaml,
 } from "obsidian";
+import releaseNotes from "./RELEASENOTES.md";
 
 type TransferMode = "copy" | "move";
 type ConflictStrategy = "skip" | "auto-rename" | "overwrite";
@@ -187,7 +189,7 @@ function createBlankDestination(): DestinationConfig {
     name: "",
     vaultPath: "",
     destinationPath: "",
-    useDefaultAttachmentLocation: true,
+    useDefaultAttachmentLocation: false,
     attachmentPath: "",
   };
 }
@@ -1377,6 +1379,17 @@ class TransVaultSettingTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
 
+    new Setting(containerEl)
+      .setName("Release notes")
+      .setDesc("Read what changed in this version.")
+      .addButton((button) => {
+        button.setButtonText("Show release notes").setCta().onClick(() => {
+          new ReleaseNotesModal(this.app, this.plugin).open();
+        });
+      });
+
+    containerEl.createEl("br");
+
     this.addDropdownSetting(containerEl, {
       name: "Conflict handling",
       description: "Choose whether existing destination files are skipped, renamed automatically, or overwritten.",
@@ -1635,6 +1648,18 @@ class TransVaultSettingTab extends PluginSettingTab {
   }
 }
 
+class ReleaseNotesModal extends Modal {
+  constructor(app: App, private readonly plugin: Plugin) {
+    super(app);
+  }
+
+  onOpen(): void {
+    this.titleEl.setText("Release notes");
+    this.contentEl.empty();
+    void MarkdownRenderer.render(this.app, releaseNotes, this.contentEl, "RELEASENOTES.md", this.plugin);
+  }
+}
+
 export default class TransVaultPlugin extends Plugin {
   settings: TransVaultSettings = DEFAULT_SETTINGS;
   private readonly destinationResolver = new DestinationResolver();
@@ -1666,11 +1691,17 @@ export default class TransVaultPlugin extends Plugin {
       ...DEFAULT_SETTINGS,
       ...stored,
       reviewDialogMode: migratedReviewDialogMode ?? DEFAULT_SETTINGS.reviewDialogMode,
-      targets: (stored?.targets ?? []).map((target) => ({
-        ...createBlankDestination(),
-        ...target,
-        id: target.id ?? createDestinationId(),
-      })),
+      targets: (stored?.targets ?? []).map((target) => {
+        const migratedTarget = {
+          ...createBlankDestination(),
+          ...target,
+          id: target.id ?? createDestinationId(),
+        };
+        if (typeof target.useDefaultAttachmentLocation !== "boolean" && !target.attachmentPath?.trim()) {
+          migratedTarget.useDefaultAttachmentLocation = true;
+        }
+        return migratedTarget;
+      }),
     };
 
     for (const target of this.settings.targets) {
