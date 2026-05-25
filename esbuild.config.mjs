@@ -11,6 +11,9 @@ const context = await esbuild.context({
   target: "es2021",
   platform: "node",
   outfile: "main.js",
+  loader: {
+    ".md": "text"
+  },
   sourcemap: release ? false : "inline",
   minify: release,
   logLevel: "info"
