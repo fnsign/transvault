@@ -1026,7 +1026,7 @@ class TransferExecutor {
         : "unknown";
 
       try {
-        await this.plugin.app.fileManager.processFrontMatter(file, (frontmatter) => {
+        await this.plugin.app.fileManager.processFrontMatter(file, (frontmatter: Record<string, unknown>) => {
           const mergedTags = joinTagValues(extractExistingTags(frontmatter.tags), tags);
           if (mergedTags.length === 0) {
             delete frontmatter.tags;
@@ -1492,6 +1492,73 @@ class TransVaultSettingTab extends PluginSettingTab {
       },
     });
 
+    this.renderDestinationSettings(containerEl);
+  }
+
+  getSettingDefinitions() {
+    return [
+      {
+        name: "Release notes",
+        desc: "Read what changed in this version.",
+        action: () => new ReleaseNotesModal(this.app).open(),
+      },
+      {
+        name: "Conflict handling",
+        desc: "Choose whether existing destination files are skipped, renamed automatically, or overwritten.",
+        control: {
+          type: "dropdown",
+          key: "conflictStrategy",
+          options: Object.fromEntries(
+            (Object.entries(CONFLICT_STRATEGY_METADATA) as Array<[ConflictStrategy, typeof CONFLICT_STRATEGY_METADATA[ConflictStrategy]]>)
+              .map(([value, meta]) => [value, meta.label]),
+          ),
+        },
+      },
+      {
+        name: "Include linked files",
+        desc: "Include directly related notes and linked non-Markdown files from selected notes.",
+        control: { type: "toggle", key: "includeLinkedFiles" },
+      },
+      {
+        name: "Review dialog",
+        desc: "Choose when to show the transfer review dialog.",
+        control: {
+          type: "dropdown",
+          key: "reviewDialogMode",
+          options: {
+            always: "Always",
+            "linked-only": "Only when notes are linked",
+            never: "Never",
+          },
+        },
+      },
+      {
+        name: "Tags for copied notes",
+        desc: "Comma-separated tags added to transferred Markdown files when copying.",
+        control: { type: "text", key: "tagsForCopiedElements", placeholder: "copied, sent" },
+      },
+      {
+        name: "Also tag copied source notes",
+        desc: "Write the configured copy tags back into source Markdown files in the active vault.",
+        control: { type: "toggle", key: "alsoTagCopiedSourceElements" },
+      },
+      {
+        name: "Tags for moved notes",
+        desc: "Comma-separated tags added to transferred Markdown files when moving.",
+        control: { type: "text", key: "tagsForMovedElements", placeholder: "moved, archived" },
+      },
+      {
+        name: "Destination vaults",
+        desc: "Configure local destination vaults for copied and moved content.",
+        render: (setting: Setting) => {
+          setting.controlEl.empty();
+          this.renderDestinationSettings(setting.controlEl);
+        },
+      },
+    ];
+  }
+
+  private renderDestinationSettings(containerEl: HTMLElement): void {
     new Setting(containerEl).setName("Destination vaults").setHeading();
     containerEl.createEl("p", {
       text: "Use absolute paths. Destination and attachment paths must stay inside the destination vault root.",
@@ -1507,7 +1574,8 @@ class TransVaultSettingTab extends PluginSettingTab {
       .addButton((button) => {
         button.setButtonText("Add destination").setCta().onClick(async () => {
           this.plugin.settings.targets.push(createBlankDestination());
-          await this.saveAndRedisplay();
+          await this.plugin.saveSettings();
+          (this as unknown as { update: () => void }).update();
         });
       });
   }
