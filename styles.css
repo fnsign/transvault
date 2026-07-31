@@ -1,3 +1,7 @@
+.transvault-destination-settings {
+  display: block;
+}
+
 .transvault-target-card {
   border: 1px solid var(--background-modifier-border);
   border-radius: 12px;

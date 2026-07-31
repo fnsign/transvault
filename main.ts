@@ -3,6 +3,7 @@ import os from "os";
 import path from "path";
 import {
   App,
+  Component,
   FileSystemAdapter,
   FuzzyMatch,
   FuzzySuggestModal,
@@ -103,7 +104,7 @@ interface DraftTransferEntry {
   overwriteExisting: boolean;
 }
 
-interface FinalizedTransferEntry extends DraftTransferEntry {}
+type FinalizedTransferEntry = DraftTransferEntry;
 
 interface TransferSummary {
   requestedFileCount: number;
@@ -119,6 +120,36 @@ interface TransferSummary {
 interface ReviewModalResult {
   confirmed: boolean;
   selectedPaths: string[];
+}
+
+interface ExternalMenuContext {
+  addItem?: Menu["addItem"];
+  file?: unknown;
+  folder?: unknown;
+  selection?: { files?: unknown[] };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isAbstractFile(value: unknown): value is TAbstractFile {
+  return value instanceof TFile || value instanceof TFolder;
+}
+
+function getExternalMenuContext(value: unknown): ExternalMenuContext | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const selection = isRecord(value.selection) && Array.isArray(value.selection.files)
+    ? { files: value.selection.files }
+    : undefined;
+  return {
+    addItem: typeof value.addItem === "function" ? value.addItem as Menu["addItem"] : undefined,
+    file: value.file,
+    folder: value.folder,
+    selection,
+  };
 }
 
 interface FrontmatterTagResult {
@@ -345,6 +376,8 @@ function hasSelectedAncestor(filePath: string, selectedPaths: Set<string>): bool
 }
 
 class DestinationResolver {
+  constructor(private readonly configDir: string) {}
+
   async resolve(target: DestinationConfig): Promise<ResolvedDestinationConfig> {
     const vaultPath = ensureAbsolutePath(target.vaultPath, "Destination vault path");
     const destinationPath = ensureAbsolutePath(target.destinationPath, "Destination path");
@@ -402,7 +435,7 @@ class DestinationResolver {
 
   async resolveDefaultAttachmentPath(vaultPath: string): Promise<string> {
     const normalizedVaultPath = normalizeAbsolutePath(vaultPath);
-    const configPath = path.join(normalizedVaultPath, ".obsidian", "app.json");
+    const configPath = path.join(normalizedVaultPath, this.configDir, "app.json");
     try {
       const raw = await fs.readFile(configPath, "utf8");
       const parsed = JSON.parse(raw) as { attachmentFolderPath?: string };
@@ -993,7 +1026,7 @@ class TransferExecutor {
         : "unknown";
 
       try {
-        await this.plugin.app.fileManager.processFrontMatter(file, (frontmatter) => {
+        await this.plugin.app.fileManager.processFrontMatter(file, (frontmatter: Record<string, unknown>) => {
           const mergedTags = joinTagValues(extractExistingTags(frontmatter.tags), tags);
           if (mergedTags.length === 0) {
             delete frontmatter.tags;
@@ -1086,7 +1119,7 @@ class TransferExecutor {
         if (!currentFile) {
           continue;
         }
-        await this.plugin.app.vault.delete(currentFile);
+        await this.plugin.app.fileManager.trashFile(currentFile);
         deletedCount += 1;
       } catch (error) {
         summary.failedCount += 1;
@@ -1101,7 +1134,7 @@ class TransferExecutor {
         if (!folder || folder.children.length > 0) {
           continue;
         }
-        await this.plugin.app.vault.delete(folder, true);
+        await this.plugin.app.fileManager.trashFile(folder);
       } catch (error) {
         summary.warnings.push(`Failed to delete source folder ${folderPath}: ${this.toErrorMessage(error, "Could not delete source folder.")}`);
       }
@@ -1370,12 +1403,14 @@ class ReviewSelectionModal extends Modal {
   }
 }
 
+// The installed 1.12 type definitions still require the legacy settings renderer.
+// @ts-expect-error Obsidian 1.13 declarative settings tabs do not require the legacy renderer.
 class TransVaultSettingTab extends PluginSettingTab {
   constructor(app: App, private readonly plugin: TransVaultPlugin, private readonly destinationResolver: DestinationResolver) {
     super(app, plugin);
   }
 
-  display(): void {
+  renderLegacySettings = (): void => {
     const { containerEl } = this;
     containerEl.empty();
 
@@ -1384,7 +1419,7 @@ class TransVaultSettingTab extends PluginSettingTab {
       .setDesc("Read what changed in this version.")
       .addButton((button) => {
         button.setButtonText("Show release notes").setCta().onClick(() => {
-          new ReleaseNotesModal(this.app, this.plugin).open();
+          new ReleaseNotesModal(this.app).open();
         });
       });
 
@@ -1459,6 +1494,74 @@ class TransVaultSettingTab extends PluginSettingTab {
       },
     });
 
+    this.renderDestinationSettings(containerEl);
+  }
+
+  getSettingDefinitions() {
+    return [
+      {
+        name: "Release notes",
+        desc: "Read what changed in this version.",
+        action: () => new ReleaseNotesModal(this.app).open(),
+      },
+      {
+        name: "Conflict handling",
+        desc: "Choose whether existing destination files are skipped, renamed automatically, or overwritten.",
+        control: {
+          type: "dropdown",
+          key: "conflictStrategy",
+          options: Object.fromEntries(
+            (Object.entries(CONFLICT_STRATEGY_METADATA) as Array<[ConflictStrategy, typeof CONFLICT_STRATEGY_METADATA[ConflictStrategy]]>)
+              .map(([value, meta]) => [value, meta.label]),
+          ),
+        },
+      },
+      {
+        name: "Include linked files",
+        desc: "Include directly related notes and linked non-Markdown files from selected notes.",
+        control: { type: "toggle", key: "includeLinkedFiles" },
+      },
+      {
+        name: "Review dialog",
+        desc: "Choose when to show the transfer review dialog.",
+        control: {
+          type: "dropdown",
+          key: "reviewDialogMode",
+          options: {
+            always: "Always",
+            "linked-only": "Only when notes are linked",
+            never: "Never",
+          },
+        },
+      },
+      {
+        name: "Tags for copied notes",
+        desc: "Comma-separated tags added to transferred Markdown files when copying.",
+        control: { type: "text", key: "tagsForCopiedElements", placeholder: "copied, sent" },
+      },
+      {
+        name: "Also tag copied source notes",
+        desc: "Write the configured copy tags back into source Markdown files in the active vault.",
+        control: { type: "toggle", key: "alsoTagCopiedSourceElements" },
+      },
+      {
+        name: "Tags for moved notes",
+        desc: "Comma-separated tags added to transferred Markdown files when moving.",
+        control: { type: "text", key: "tagsForMovedElements", placeholder: "moved, archived" },
+      },
+      {
+        name: "Destination vaults",
+        desc: "Configure local destination vaults for copied and moved content.",
+        render: (setting: Setting) => {
+          setting.settingEl.empty();
+          setting.settingEl.addClass("transvault-destination-settings");
+          this.renderDestinationSettings(setting.settingEl);
+        },
+      },
+    ];
+  }
+
+  private renderDestinationSettings(containerEl: HTMLElement): void {
     new Setting(containerEl).setName("Destination vaults").setHeading();
     containerEl.createEl("p", {
       text: "Use absolute paths. Destination and attachment paths must stay inside the destination vault root.",
@@ -1474,7 +1577,8 @@ class TransVaultSettingTab extends PluginSettingTab {
       .addButton((button) => {
         button.setButtonText("Add destination").setCta().onClick(async () => {
           this.plugin.settings.targets.push(createBlankDestination());
-          await this.saveAndRedisplay();
+          await this.plugin.saveSettings();
+          (this as unknown as { update: () => void }).update();
         });
       });
   }
@@ -1521,14 +1625,14 @@ class TransVaultSettingTab extends PluginSettingTab {
 
     this.addToggleSetting(card, {
       name: "Use default attachment location",
-      description: "Read .obsidian/app.json in the destination vault and resolve the attachment folder automatically.",
+      description: "Read the destination vault configuration and resolve the attachment folder automatically.",
       value: target.useDefaultAttachmentLocation,
       onChange: async (value) => {
         target.useDefaultAttachmentLocation = value;
         if (value) {
           await this.updateDetectedAttachmentPath(target);
         }
-        await this.saveAndRedisplay();
+        await this.saveAndRefresh();
       },
     });
 
@@ -1550,7 +1654,7 @@ class TransVaultSettingTab extends PluginSettingTab {
     new Setting(card).addButton((button) => {
       button.setButtonText("Remove").setWarning().onClick(async () => {
         this.plugin.settings.targets = this.plugin.settings.targets.filter((entry) => entry.id !== target.id);
-        await this.saveAndRedisplay();
+        await this.saveAndRefresh();
       });
     });
   }
@@ -1611,9 +1715,9 @@ class TransVaultSettingTab extends PluginSettingTab {
       });
   }
 
-  private async saveAndRedisplay(): Promise<void> {
+  private async saveAndRefresh(): Promise<void> {
     await this.plugin.saveSettings();
-    this.display();
+    (this as unknown as { update: () => void }).update();
   }
 
   private async saveAndRefreshValidation(containerEl: HTMLElement, target: DestinationConfig): Promise<void> {
@@ -1649,20 +1753,27 @@ class TransVaultSettingTab extends PluginSettingTab {
 }
 
 class ReleaseNotesModal extends Modal {
-  constructor(app: App, private readonly plugin: Plugin) {
+  private readonly renderer = new Component();
+
+  constructor(app: App) {
     super(app);
   }
 
   onOpen(): void {
     this.titleEl.setText("Release notes");
     this.contentEl.empty();
-    void MarkdownRenderer.render(this.app, releaseNotes, this.contentEl, "RELEASENOTES.md", this.plugin);
+    void MarkdownRenderer.render(this.app, releaseNotes, this.contentEl, "RELEASENOTES.md", this.renderer);
+  }
+
+  onClose(): void {
+    this.renderer.unload();
+    this.contentEl.empty();
   }
 }
 
 export default class TransVaultPlugin extends Plugin {
   settings: TransVaultSettings = DEFAULT_SETTINGS;
-  private readonly destinationResolver = new DestinationResolver();
+  private readonly destinationResolver = new DestinationResolver(this.app.vault.configDir);
   private planner = new TransferPlanner(this, this.destinationResolver);
   private executor = new TransferExecutor(this);
   private notebookNavigatorMenusRegistered = false;
@@ -1742,11 +1853,10 @@ export default class TransVaultPlugin extends Plugin {
   }
 
   private registerContextMenus(): void {
-    const workspace = this.app.workspace as any;
-    this.registerEvent(workspace.on("file-menu", (menu: Menu, file: TAbstractFile) => {
+    this.registerEvent(this.app.workspace.on("file-menu", (menu: Menu, file: TAbstractFile) => {
       this.addTransferMenuItems(menu, [file]);
     }));
-    this.registerEvent(workspace.on("files-menu", (menu: Menu, files: TAbstractFile[]) => {
+    this.registerEvent(this.app.workspace.on("files-menu", (menu: Menu, files: TAbstractFile[]) => {
       this.addTransferMenuItems(menu, files);
     }));
   }
@@ -1772,8 +1882,8 @@ export default class TransVaultPlugin extends Plugin {
     const notebookNavigator = ((this.app as unknown as { plugins?: { plugins?: Record<string, unknown> } }).plugins?.plugins?.["notebook-navigator"] as {
       api?: {
         menus?: {
-          registerFileMenu?: (callback: (context: any) => void) => (() => void) | void;
-          registerFolderMenu?: (callback: (context: any) => void) => (() => void) | void;
+          registerFileMenu?: (callback: (context: unknown) => void) => (() => void) | void;
+          registerFolderMenu?: (callback: (context: unknown) => void) => (() => void) | void;
         };
       };
     } | undefined)?.api;
@@ -1783,15 +1893,25 @@ export default class TransVaultPlugin extends Plugin {
     }
 
     const disposeFileMenu = notebookNavigator.menus.registerFileMenu?.((context) => {
-      const selection = Array.isArray(context.selection?.files) ? context.selection.files : [context.file];
-      this.addTransferMenuItemsToExternalMenu(context.addItem, selection);
+      const menuContext = getExternalMenuContext(context);
+      if (!menuContext || !menuContext.addItem) {
+        return;
+      }
+      const selection = Array.isArray(menuContext.selection?.files)
+        ? menuContext.selection.files.filter(isAbstractFile)
+        : isAbstractFile(menuContext.file) ? [menuContext.file] : [];
+      this.addTransferMenuItemsToExternalMenu(menuContext.addItem, selection);
     });
     if (typeof disposeFileMenu === "function") {
       this.register(disposeFileMenu);
     }
 
     const disposeFolderMenu = notebookNavigator.menus.registerFolderMenu?.((context) => {
-      this.addTransferMenuItemsToExternalMenu(context.addItem, [context.folder]);
+      const menuContext = getExternalMenuContext(context);
+      if (!menuContext || !menuContext.addItem || !isAbstractFile(menuContext.folder)) {
+        return;
+      }
+      this.addTransferMenuItemsToExternalMenu(menuContext.addItem, [menuContext.folder]);
     });
     if (typeof disposeFolderMenu === "function") {
       this.register(disposeFolderMenu);
@@ -1912,37 +2032,22 @@ export default class TransVaultPlugin extends Plugin {
     }
 
     if (summary.skippedConflictCount > 0) {
-      const fragment = document.createDocumentFragment();
-      const container = document.createElement("div");
-      container.className = "transvault-skip-notice";
-      const title = document.createElement("div");
-      title.className = "transvault-skip-notice-title";
-      title.textContent = `${action} with warnings: ${parts.join(", ")}.`;
-      container.appendChild(title);
+      const fragment = createFragment();
+      const container = fragment.createDiv({ cls: "transvault-skip-notice" });
+      container.createDiv({ cls: "transvault-skip-notice-title", text: `${action} with warnings: ${parts.join(", ")}.` });
       const shownEntries = summary.skippedEntries.slice(0, 10);
-      const list = document.createElement("ul");
-      list.className = "transvault-skip-notice-list";
+      const list = container.createEl("ul", { cls: "transvault-skip-notice-list" });
       for (const skipped of shownEntries) {
-        const row = document.createElement("li");
-        row.textContent = skipped;
-        list.appendChild(row);
+        list.createEl("li", { text: skipped });
       }
-      container.appendChild(list);
       if (summary.skippedEntries.length > shownEntries.length) {
-        const more = document.createElement("div");
-        more.className = "transvault-skip-notice-more";
-        more.textContent = `... and ${formatCount(summary.skippedEntries.length - shownEntries.length, "more skipped item", "more skipped items")}.`;
-        container.appendChild(more);
+        container.createDiv({ cls: "transvault-skip-notice-more", text: `... and ${formatCount(summary.skippedEntries.length - shownEntries.length, "more skipped item", "more skipped items")}.` });
       }
-      const dismissHint = document.createElement("div");
-      dismissHint.className = "transvault-skip-notice-dismiss";
-      dismissHint.textContent = "Click to dismiss";
-      container.appendChild(dismissHint);
-      fragment.appendChild(container);
-      const notice = new Notice(fragment, 0) as Notice & { noticeEl?: HTMLElement; hide?: () => void };
-      notice.noticeEl?.addClass("transvault-notice-clickable");
-      notice.noticeEl?.addEventListener("click", () => {
-        notice.hide?.();
+      container.createDiv({ cls: "transvault-skip-notice-dismiss", text: "Click to dismiss" });
+      const notice = new Notice(fragment, 0);
+      notice.messageEl.addClass("transvault-notice-clickable");
+      notice.messageEl.addEventListener("click", () => {
+        notice.hide();
       });
       return;
     }
