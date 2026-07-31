@@ -2032,18 +2032,17 @@ export default class TransVaultPlugin extends Plugin {
 
     if (summary.skippedConflictCount > 0) {
       const fragment = createFragment();
-      const container = createEl("div", { cls: "transvault-skip-notice" });
-      container.createEl("div", { cls: "transvault-skip-notice-title", text: `${action} with warnings: ${parts.join(", ")}.` });
+      const container = fragment.createDiv({ cls: "transvault-skip-notice" });
+      container.createDiv({ cls: "transvault-skip-notice-title", text: `${action} with warnings: ${parts.join(", ")}.` });
       const shownEntries = summary.skippedEntries.slice(0, 10);
       const list = container.createEl("ul", { cls: "transvault-skip-notice-list" });
       for (const skipped of shownEntries) {
         list.createEl("li", { text: skipped });
       }
       if (summary.skippedEntries.length > shownEntries.length) {
-        container.createEl("div", { cls: "transvault-skip-notice-more", text: `... and ${formatCount(summary.skippedEntries.length - shownEntries.length, "more skipped item", "more skipped items")}.` });
+        container.createDiv({ cls: "transvault-skip-notice-more", text: `... and ${formatCount(summary.skippedEntries.length - shownEntries.length, "more skipped item", "more skipped items")}.` });
       }
-      container.createEl("div", { cls: "transvault-skip-notice-dismiss", text: "Click to dismiss" });
-      fragment.appendChild(container);
+      container.createDiv({ cls: "transvault-skip-notice-dismiss", text: "Click to dismiss" });
       const notice = new Notice(fragment, 0);
       notice.messageEl.addClass("transvault-notice-clickable");
       notice.messageEl.addEventListener("click", () => {
