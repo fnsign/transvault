@@ -1,5 +1,10 @@
 # Trans Vault Release Notes
 
+## Version 1.1.2
+
+### Changed
+- Rebuilt the release artifact directly from source using the committed dependency lockfile.
+
 ## Version 1.1.1
 
 ### IMPORTANT NOTE:
