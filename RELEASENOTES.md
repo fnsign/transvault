@@ -1,5 +1,16 @@
 # Trans Vault Release Notes
 
+## Version 1.1.1
+
+### IMPORTANT NOTE:
+The minimum required Obsidian version is 1.13.0.
+Please update Obsidian to the latest version to use the Trans Vault plugin. Thank you!
+
+### Changed
+- The plugin is adopted to the new API released with Obsidian 1.13.x.
+- Minor UI fixes.
+
+
 ## Version 1.1.0
 
 ### Added
