@@ -3,6 +3,7 @@ import os from "os";
 import path from "path";
 import {
   App,
+  Component,
   FileSystemAdapter,
   FuzzyMatch,
   FuzzySuggestModal,
@@ -103,7 +104,7 @@ interface DraftTransferEntry {
   overwriteExisting: boolean;
 }
 
-interface FinalizedTransferEntry extends DraftTransferEntry {}
+type FinalizedTransferEntry = DraftTransferEntry;
 
 interface TransferSummary {
   requestedFileCount: number;
@@ -119,6 +120,36 @@ interface TransferSummary {
 interface ReviewModalResult {
   confirmed: boolean;
   selectedPaths: string[];
+}
+
+interface ExternalMenuContext {
+  addItem?: Menu["addItem"];
+  file?: unknown;
+  folder?: unknown;
+  selection?: { files?: unknown[] };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isAbstractFile(value: unknown): value is TAbstractFile {
+  return value instanceof TFile || value instanceof TFolder;
+}
+
+function getExternalMenuContext(value: unknown): ExternalMenuContext | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const selection = isRecord(value.selection) && Array.isArray(value.selection.files)
+    ? { files: value.selection.files }
+    : undefined;
+  return {
+    addItem: typeof value.addItem === "function" ? value.addItem as Menu["addItem"] : undefined,
+    file: value.file,
+    folder: value.folder,
+    selection,
+  };
 }
 
 interface FrontmatterTagResult {
@@ -345,6 +376,8 @@ function hasSelectedAncestor(filePath: string, selectedPaths: Set<string>): bool
 }
 
 class DestinationResolver {
+  constructor(private readonly configDir: string) {}
+
   async resolve(target: DestinationConfig): Promise<ResolvedDestinationConfig> {
     const vaultPath = ensureAbsolutePath(target.vaultPath, "Destination vault path");
     const destinationPath = ensureAbsolutePath(target.destinationPath, "Destination path");
@@ -402,7 +435,7 @@ class DestinationResolver {
 
   async resolveDefaultAttachmentPath(vaultPath: string): Promise<string> {
     const normalizedVaultPath = normalizeAbsolutePath(vaultPath);
-    const configPath = path.join(normalizedVaultPath, ".obsidian", "app.json");
+    const configPath = path.join(normalizedVaultPath, this.configDir, "app.json");
     try {
       const raw = await fs.readFile(configPath, "utf8");
       const parsed = JSON.parse(raw) as { attachmentFolderPath?: string };
@@ -1086,7 +1119,7 @@ class TransferExecutor {
         if (!currentFile) {
           continue;
         }
-        await this.plugin.app.vault.delete(currentFile);
+        await this.plugin.app.fileManager.trashFile(currentFile);
         deletedCount += 1;
       } catch (error) {
         summary.failedCount += 1;
@@ -1101,7 +1134,7 @@ class TransferExecutor {
         if (!folder || folder.children.length > 0) {
           continue;
         }
-        await this.plugin.app.vault.delete(folder, true);
+        await this.plugin.app.fileManager.trashFile(folder);
       } catch (error) {
         summary.warnings.push(`Failed to delete source folder ${folderPath}: ${this.toErrorMessage(error, "Could not delete source folder.")}`);
       }
@@ -1384,7 +1417,7 @@ class TransVaultSettingTab extends PluginSettingTab {
       .setDesc("Read what changed in this version.")
       .addButton((button) => {
         button.setButtonText("Show release notes").setCta().onClick(() => {
-          new ReleaseNotesModal(this.app, this.plugin).open();
+          new ReleaseNotesModal(this.app).open();
         });
       });
 
@@ -1521,7 +1554,7 @@ class TransVaultSettingTab extends PluginSettingTab {
 
     this.addToggleSetting(card, {
       name: "Use default attachment location",
-      description: "Read .obsidian/app.json in the destination vault and resolve the attachment folder automatically.",
+      description: "Read the destination vault configuration and resolve the attachment folder automatically.",
       value: target.useDefaultAttachmentLocation,
       onChange: async (value) => {
         target.useDefaultAttachmentLocation = value;
@@ -1649,20 +1682,27 @@ class TransVaultSettingTab extends PluginSettingTab {
 }
 
 class ReleaseNotesModal extends Modal {
-  constructor(app: App, private readonly plugin: Plugin) {
+  private readonly renderer = new Component();
+
+  constructor(app: App) {
     super(app);
   }
 
   onOpen(): void {
     this.titleEl.setText("Release notes");
     this.contentEl.empty();
-    void MarkdownRenderer.render(this.app, releaseNotes, this.contentEl, "RELEASENOTES.md", this.plugin);
+    void MarkdownRenderer.render(this.app, releaseNotes, this.contentEl, "RELEASENOTES.md", this.renderer);
+  }
+
+  onClose(): void {
+    this.renderer.unload();
+    this.contentEl.empty();
   }
 }
 
 export default class TransVaultPlugin extends Plugin {
   settings: TransVaultSettings = DEFAULT_SETTINGS;
-  private readonly destinationResolver = new DestinationResolver();
+  private readonly destinationResolver = new DestinationResolver(this.app.vault.configDir);
   private planner = new TransferPlanner(this, this.destinationResolver);
   private executor = new TransferExecutor(this);
   private notebookNavigatorMenusRegistered = false;
@@ -1742,11 +1782,10 @@ export default class TransVaultPlugin extends Plugin {
   }
 
   private registerContextMenus(): void {
-    const workspace = this.app.workspace as any;
-    this.registerEvent(workspace.on("file-menu", (menu: Menu, file: TAbstractFile) => {
+    this.registerEvent(this.app.workspace.on("file-menu", (menu: Menu, file: TAbstractFile) => {
       this.addTransferMenuItems(menu, [file]);
     }));
-    this.registerEvent(workspace.on("files-menu", (menu: Menu, files: TAbstractFile[]) => {
+    this.registerEvent(this.app.workspace.on("files-menu", (menu: Menu, files: TAbstractFile[]) => {
       this.addTransferMenuItems(menu, files);
     }));
   }
@@ -1772,8 +1811,8 @@ export default class TransVaultPlugin extends Plugin {
     const notebookNavigator = ((this.app as unknown as { plugins?: { plugins?: Record<string, unknown> } }).plugins?.plugins?.["notebook-navigator"] as {
       api?: {
         menus?: {
-          registerFileMenu?: (callback: (context: any) => void) => (() => void) | void;
-          registerFolderMenu?: (callback: (context: any) => void) => (() => void) | void;
+          registerFileMenu?: (callback: (context: unknown) => void) => (() => void) | void;
+          registerFolderMenu?: (callback: (context: unknown) => void) => (() => void) | void;
         };
       };
     } | undefined)?.api;
@@ -1783,15 +1822,25 @@ export default class TransVaultPlugin extends Plugin {
     }
 
     const disposeFileMenu = notebookNavigator.menus.registerFileMenu?.((context) => {
-      const selection = Array.isArray(context.selection?.files) ? context.selection.files : [context.file];
-      this.addTransferMenuItemsToExternalMenu(context.addItem, selection);
+      const menuContext = getExternalMenuContext(context);
+      if (!menuContext || !menuContext.addItem) {
+        return;
+      }
+      const selection = Array.isArray(menuContext.selection?.files)
+        ? menuContext.selection.files.filter(isAbstractFile)
+        : isAbstractFile(menuContext.file) ? [menuContext.file] : [];
+      this.addTransferMenuItemsToExternalMenu(menuContext.addItem, selection);
     });
     if (typeof disposeFileMenu === "function") {
       this.register(disposeFileMenu);
     }
 
     const disposeFolderMenu = notebookNavigator.menus.registerFolderMenu?.((context) => {
-      this.addTransferMenuItemsToExternalMenu(context.addItem, [context.folder]);
+      const menuContext = getExternalMenuContext(context);
+      if (!menuContext || !menuContext.addItem || !isAbstractFile(menuContext.folder)) {
+        return;
+      }
+      this.addTransferMenuItemsToExternalMenu(menuContext.addItem, [menuContext.folder]);
     });
     if (typeof disposeFolderMenu === "function") {
       this.register(disposeFolderMenu);
@@ -1913,36 +1962,22 @@ export default class TransVaultPlugin extends Plugin {
 
     if (summary.skippedConflictCount > 0) {
       const fragment = document.createDocumentFragment();
-      const container = document.createElement("div");
-      container.className = "transvault-skip-notice";
-      const title = document.createElement("div");
-      title.className = "transvault-skip-notice-title";
-      title.textContent = `${action} with warnings: ${parts.join(", ")}.`;
-      container.appendChild(title);
+      const container = createEl("div", { cls: "transvault-skip-notice" });
+      container.createEl("div", { cls: "transvault-skip-notice-title", text: `${action} with warnings: ${parts.join(", ")}.` });
       const shownEntries = summary.skippedEntries.slice(0, 10);
-      const list = document.createElement("ul");
-      list.className = "transvault-skip-notice-list";
+      const list = container.createEl("ul", { cls: "transvault-skip-notice-list" });
       for (const skipped of shownEntries) {
-        const row = document.createElement("li");
-        row.textContent = skipped;
-        list.appendChild(row);
+        list.createEl("li", { text: skipped });
       }
-      container.appendChild(list);
       if (summary.skippedEntries.length > shownEntries.length) {
-        const more = document.createElement("div");
-        more.className = "transvault-skip-notice-more";
-        more.textContent = `... and ${formatCount(summary.skippedEntries.length - shownEntries.length, "more skipped item", "more skipped items")}.`;
-        container.appendChild(more);
+        container.createEl("div", { cls: "transvault-skip-notice-more", text: `... and ${formatCount(summary.skippedEntries.length - shownEntries.length, "more skipped item", "more skipped items")}.` });
       }
-      const dismissHint = document.createElement("div");
-      dismissHint.className = "transvault-skip-notice-dismiss";
-      dismissHint.textContent = "Click to dismiss";
-      container.appendChild(dismissHint);
+      container.createEl("div", { cls: "transvault-skip-notice-dismiss", text: "Click to dismiss" });
       fragment.appendChild(container);
-      const notice = new Notice(fragment, 0) as Notice & { noticeEl?: HTMLElement; hide?: () => void };
-      notice.noticeEl?.addClass("transvault-notice-clickable");
-      notice.noticeEl?.addEventListener("click", () => {
-        notice.hide?.();
+      const notice = new Notice(fragment, 0);
+      notice.messageEl.addClass("transvault-notice-clickable");
+      notice.messageEl.addEventListener("click", () => {
+        notice.hide();
       });
       return;
     }
