@@ -1403,16 +1403,14 @@ class ReviewSelectionModal extends Modal {
   }
 }
 
-interface TransVaultSettingTab {
-  update(): void;
-}
-
+// The installed 1.12 type definitions still require the legacy settings renderer.
+// @ts-expect-error Obsidian 1.13 declarative settings tabs do not require the legacy renderer.
 class TransVaultSettingTab extends PluginSettingTab {
   constructor(app: App, private readonly plugin: TransVaultPlugin, private readonly destinationResolver: DestinationResolver) {
     super(app, plugin);
   }
 
-  display = (): void => {
+  renderLegacySettings = (): void => {
     const { containerEl } = this;
     containerEl.empty();
 
@@ -1579,7 +1577,7 @@ class TransVaultSettingTab extends PluginSettingTab {
         button.setButtonText("Add destination").setCta().onClick(async () => {
           this.plugin.settings.targets.push(createBlankDestination());
           await this.plugin.saveSettings();
-          this.update();
+          (this as unknown as { update: () => void }).update();
         });
       });
   }
@@ -1633,7 +1631,7 @@ class TransVaultSettingTab extends PluginSettingTab {
         if (value) {
           await this.updateDetectedAttachmentPath(target);
         }
-        await this.saveAndRedisplay();
+        await this.saveAndRefresh();
       },
     });
 
@@ -1655,7 +1653,7 @@ class TransVaultSettingTab extends PluginSettingTab {
     new Setting(card).addButton((button) => {
       button.setButtonText("Remove").setWarning().onClick(async () => {
         this.plugin.settings.targets = this.plugin.settings.targets.filter((entry) => entry.id !== target.id);
-        await this.saveAndRedisplay();
+        await this.saveAndRefresh();
       });
     });
   }
@@ -1716,9 +1714,9 @@ class TransVaultSettingTab extends PluginSettingTab {
       });
   }
 
-  private async saveAndRedisplay(): Promise<void> {
+  private async saveAndRefresh(): Promise<void> {
     await this.plugin.saveSettings();
-    this.update();
+    (this as unknown as { update: () => void }).update();
   }
 
   private async saveAndRefreshValidation(containerEl: HTMLElement, target: DestinationConfig): Promise<void> {
