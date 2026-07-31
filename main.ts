@@ -1403,12 +1403,16 @@ class ReviewSelectionModal extends Modal {
   }
 }
 
+interface TransVaultSettingTab {
+  update(): void;
+}
+
 class TransVaultSettingTab extends PluginSettingTab {
   constructor(app: App, private readonly plugin: TransVaultPlugin, private readonly destinationResolver: DestinationResolver) {
     super(app, plugin);
   }
 
-  display(): void {
+  display = (): void => {
     const { containerEl } = this;
     containerEl.empty();
 
@@ -1575,7 +1579,7 @@ class TransVaultSettingTab extends PluginSettingTab {
         button.setButtonText("Add destination").setCta().onClick(async () => {
           this.plugin.settings.targets.push(createBlankDestination());
           await this.plugin.saveSettings();
-          (this as unknown as { update: () => void }).update();
+          this.update();
         });
       });
   }
@@ -1714,7 +1718,7 @@ class TransVaultSettingTab extends PluginSettingTab {
 
   private async saveAndRedisplay(): Promise<void> {
     await this.plugin.saveSettings();
-    this.display();
+    this.update();
   }
 
   private async saveAndRefreshValidation(containerEl: HTMLElement, target: DestinationConfig): Promise<void> {
@@ -2029,7 +2033,7 @@ export default class TransVaultPlugin extends Plugin {
     }
 
     if (summary.skippedConflictCount > 0) {
-      const fragment = document.createDocumentFragment();
+      const fragment = createFragment();
       const container = createEl("div", { cls: "transvault-skip-notice" });
       container.createEl("div", { cls: "transvault-skip-notice-title", text: `${action} with warnings: ${parts.join(", ")}.` });
       const shownEntries = summary.skippedEntries.slice(0, 10);
