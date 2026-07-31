@@ -1553,8 +1553,9 @@ class TransVaultSettingTab extends PluginSettingTab {
         name: "Destination vaults",
         desc: "Configure local destination vaults for copied and moved content.",
         render: (setting: Setting) => {
-          setting.controlEl.empty();
-          this.renderDestinationSettings(setting.controlEl);
+          setting.settingEl.empty();
+          setting.settingEl.addClass("transvault-destination-settings");
+          this.renderDestinationSettings(setting.settingEl);
         },
       },
     ];
