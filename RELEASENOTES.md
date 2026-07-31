@@ -1,5 +1,10 @@
 # Trans Vault Release Notes
 
+## Version 1.1.3
+
+### Changed
+- Release artifacts are built in CI from source with pinned dependencies.
+
 ## Version 1.1.2
 
 ### Changed

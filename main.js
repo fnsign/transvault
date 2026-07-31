@@ -1,5 +1,10 @@
 "use strict";var Z=Object.create;var P=Object.defineProperty;var ee=Object.getOwnPropertyDescriptor;var te=Object.getOwnPropertyNames;var ne=Object.getPrototypeOf,ie=Object.prototype.hasOwnProperty;var ae=(o,n)=>{for(var e in n)P(o,e,{get:n[e],enumerable:!0})},B=(o,n,e,t)=>{if(n&&typeof n=="object"||typeof n=="function")for(let i of te(n))!ie.call(o,i)&&i!==e&&P(o,i,{get:()=>n[i],enumerable:!(t=ee(n,i))||t.enumerable});return o};var A=(o,n,e)=>(e=o!=null?Z(ne(o)):{},B(n||!o||!o.__esModule?P(e,"default",{value:o,enumerable:!0}):e,o)),se=o=>B(P({},"__esModule",{value:!0}),o);var he={};ae(he,{default:()=>F});module.exports=se(he);var y=A(require("fs/promises")),R=A(require("os")),g=A(require("path")),c=require("obsidian");var W=`# Trans Vault Release Notes
 
+## Version 1.1.3
+
+### Changed
+- Release artifacts are built in CI from source with pinned dependencies.
+
 ## Version 1.1.2
 
 ### Changed
